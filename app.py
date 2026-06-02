@@ -33,3 +33,37 @@ def clean_filename(name):
     return re.sub(r'[\\/*?:"<>|]', "", name)
 
 st.write("앱 로딩 성공")
+url = st.text_input(
+    "유튜브 링크",
+    placeholder="https://www.youtube.com/watch?v=..."
+)
+
+if url:
+
+    try:
+
+        with yt_dlp.YoutubeDL({
+            "quiet": True,
+            "noplaylist": True
+        }) as ydl:
+
+            info = ydl.extract_info(
+                url,
+                download=False
+            )
+
+        st.success("영상 정보 불러오기 성공")
+
+        st.write("제목:", info.get("title"))
+
+        thumbnail = info.get("thumbnail")
+
+        if thumbnail:
+            st.image(
+                thumbnail,
+                use_container_width=True
+            )
+
+    except Exception as e:
+
+        st.error(str(e))
