@@ -94,74 +94,32 @@ if info:
         horizontal=True
     )
 
-    if st.button("다운로드 시작"):
+   if st.button("다운로드 시작"):
 
-        temp_dir = tempfile.mkdtemp()
-        output_path = os.path.join(temp_dir, f"{filename}.%(ext)s")
+    progress = st.progress(0)
+    status = st.empty()
 
-        progress = st.progress(0)
-        status = st.empty()
+    def hook(d):
+        if d["status"] == "downloading":
+            if "total_bytes" in d:
+                pct = d["downloaded_bytes"] / d["total_bytes"]
+                progress.progress(min(pct, 1.0))
+                status.info(f"{pct*100:.1f}% 다운로드 중")
 
-        # -----------------------------
-        # 진행률
-        # -----------------------------
-        def hook(d):
-            if d["status"] == "downloading":
-                if "total_bytes" in d:
-                    pct = d["downloaded_bytes"] / d["total_bytes"]
-                    progress.progress(min(pct, 1.0))
-                    status.info(f"{pct*100:.1f}% 다운로드 중")
+        if d["status"] == "finished":
+            progress.progress(1.0)
+            status.success("완료")
 
-            if d["status"] == "finished":
-                progress.progress(1.0)
-                status.success("다운로드 완료")
+    success, result = try_download(
+        url,
+        file_type,
+        filename,
+        tempfile.mkdtemp(),
+        hook
+    )
 
-        # -----------------------------
-        # MP4 / MP3 옵션
-        # -----------------------------
-        if file_type == "MP4":
-            ydl_opts = {
-                **YDL_COMMON_OPTS,
-                "format": "bestvideo+bestaudio/best",
-                "outtmpl": output_path,
-                "merge_output_format": "mp4",
-                "progress_hooks": [hook],
-            }
-        else:
-            ydl_opts = {
-                **YDL_COMMON_OPTS,
-                "format": "bestaudio/best",
-                "outtmpl": output_path,
-                "progress_hooks": [hook],
-                "postprocessors": [
-                    {
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "192"
-                    }
-                ]
-            }
-
-        # -----------------------------
-        # 다운로드 실행
-        # -----------------------------
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-
-            ext = "mp4" if file_type == "MP4" else "mp3"
-
-            files = list(Path(temp_dir).glob(f"*.{ext}"))
-
-            if files:
-                with open(files[0], "rb") as f:
-                    st.download_button(
-                        label=f"{ext.upper()} 다운로드",
-                        data=f,
-                        file_name=f"{filename}.{ext}",
-                        mime="video/mp4" if ext == "mp4" else "audio/mpeg"
-                    )
-
-        except Exception as e:
-            st.error("다운로드 실패 (403 포함 가능)")
-            st.code(str(e))
+    if not success:
+        st.error("모든 다운로드 방식 실패")
+        st.code(result)
+    else:
+        st.success("다운로드 성공!")
