@@ -11,20 +11,13 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("🎬 YouTube Downloader")
+st.title("🎬 YouTube Downloader (Cookie Support)")
 
 st.markdown("""
 <style>
-.stApp {
-    background-color: #7ca982;
-}
-
-h1, h2, h3, p, label {
-    color: white;
-}
-
-.stButton > button,
-.stDownloadButton > button {
+.stApp { background-color: #7ca982; }
+h1, h2, h3, p, label { color: white; }
+.stButton > button, .stDownloadButton > button {
     background-color: #f7f3d7;
     color: #2d4739;
     border-radius: 10px;
@@ -42,7 +35,7 @@ def clean_filename(name):
 
 
 # -------------------------
-# yt-dlp 안정 설정
+# yt-dlp 기본 안정 설정
 # -------------------------
 BASE_OPTS = {
     "quiet": True,
@@ -58,9 +51,14 @@ BASE_OPTS = {
 
 
 # -------------------------
-# UI
+# 입력
 # -------------------------
 url = st.text_input("유튜브 링크")
+
+cookie_file = st.file_uploader(
+    "쿠키 파일 업로드 (cookies.txt)",
+    type=["txt", "cookie"]
+)
 
 info = None
 
@@ -70,8 +68,8 @@ if url:
             info = ydl.extract_info(url, download=False)
 
         st.success("영상 정보 로드 성공")
-
         st.image(info.get("thumbnail"), use_container_width=True)
+
         st.write("**제목:**", info.get("title"))
         st.write("**채널:**", info.get("uploader"))
 
@@ -80,6 +78,9 @@ if url:
         st.code(str(e))
 
 
+# -------------------------
+# 다운로드 UI
+# -------------------------
 if info:
 
     filename = st.text_input(
@@ -87,11 +88,11 @@ if info:
         value=clean_filename(info.get("title", "video"))
     )
 
-    file_type = st.radio("형식 선택", ["MP4", "MP3"], horizontal=True)
+    file_type = st.radio("형식", ["MP4", "MP3"], horizontal=True)
 
     quality = st.selectbox(
-        "화질 선택",
-        ["best", "1080p", "720p", "480p", "360p", "240p", "144p"]
+        "화질",
+        ["best", "1080p", "720p", "480p", "360p"]
     )
 
 
@@ -115,28 +116,21 @@ if info:
 
         try:
 
+            # ---------------- 쿠키 처리 ----------------
+            cookie_path = None
+            if cookie_file:
+                cookie_path = os.path.join(temp_dir, "cookies.txt")
+                with open(cookie_path, "wb") as f:
+                    f.write(cookie_file.read())
+
             # ---------------- MP4 ----------------
             if file_type == "MP4":
-
-                height_map = {
-                    "1080p": 1080,
-                    "720p": 720,
-                    "480p": 480,
-                    "360p": 360,
-                    "240p": 240,
-                    "144p": 144
-                }
 
                 if quality == "best":
                     fmt = "bestvideo+bestaudio/best"
                 else:
-                    h = height_map[quality]
-
-                    fmt = (
-                        f"bestvideo[height={h}]+bestaudio/"
-                        f"bestvideo[height<={h}]+bestaudio/"
-                        "best"
-                    )
+                    h = quality.replace("p", "")
+                    fmt = f"bestvideo[height<={h}]+bestaudio/best"
 
                 ydl_opts = {
                     **BASE_OPTS,
@@ -145,6 +139,9 @@ if info:
                     "merge_output_format": "mp4",
                     "progress_hooks": [hook],
                 }
+
+                if cookie_path:
+                    ydl_opts["cookiefile"] = cookie_path
 
                 ext = "mp4"
 
@@ -162,6 +159,10 @@ if info:
                         "preferredquality": "192"
                     }]
                 }
+
+                if cookie_path:
+                    ydl_opts["cookiefile"] = cookie_path
+
                 ext = "mp3"
 
 
@@ -173,8 +174,8 @@ if info:
             if files:
                 with open(files[0], "rb") as f:
                     st.download_button(
-                        label=f"{ext.upper()} 다운로드",
-                        data=f,
+                        f"{ext.upper()} 다운로드",
+                        f,
                         file_name=f"{filename}.{ext}",
                         mime="video/mp4" if ext == "mp4" else "audio/mpeg"
                     )
