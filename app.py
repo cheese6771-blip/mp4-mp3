@@ -67,3 +67,14 @@ if url:
     except Exception as e:
 
         st.error(str(e))
+import re
+
+def clean_filename(name):
+    return re.sub(r'[\\/*?:"<>|]', "", name)
+
+filename = st.text_input(
+    "저장 파일명",
+    value=clean_filename(
+        info.get("title", "video")
+    )
+)
