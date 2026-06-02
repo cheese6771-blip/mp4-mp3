@@ -67,21 +67,8 @@ if url:
     except Exception as e:
 
         st.error(str(e))
-import re
-
-def clean_filename(name):
-    return re.sub(r'[\\/*?:"<>|]', "", name)
-
-filename = st.text_input(
-    "저장 파일명",
-    value=clean_filename(
-        info.get("title", "video")
+if thumbnail:
+    st.image(
+        thumbnail,
+        use_container_width=True
     )
-)
-file_type = st.radio(
-    "형식 선택",
-    ["MP4", "MP3"],
-    horizontal=True
-)
-if st.button("다운로드 시작"):
-    st.info("다운로드 기능 테스트 단계")
