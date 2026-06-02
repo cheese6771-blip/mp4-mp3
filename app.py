@@ -78,3 +78,8 @@ filename = st.text_input(
         info.get("title", "video")
     )
 )
+file_type = st.radio(
+    "형식 선택",
+    ["MP4", "MP3"],
+    horizontal=True
+)
