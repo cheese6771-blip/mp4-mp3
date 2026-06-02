@@ -68,17 +68,14 @@ return sorted(
 ```
 
 def check_downloadable(url):
+try:
+opts = {
+"quiet": True,
+"noplaylist": True
+}
 
 ```
-try:
-
-    opts = {
-        "quiet": True,
-        "noplaylist": True
-    }
-
     with yt_dlp.YoutubeDL(opts) as ydl:
-
         info = ydl.extract_info(
             url,
             download=False
@@ -220,76 +217,44 @@ if st.button("다운로드 시작"):
                 )
 
                 ydl_opts = {
-                    "format":
-                    f"best[height<={selected_height}]/best",
-                    "outtmpl":
-                    output,
-                    "progress_hooks":
-                    [ProgressHook()],
-                    "quiet":
-                    True,
-                    "noplaylist":
-                    True
+                    "format": f"best[height<={selected_height}]/best",
+                    "outtmpl": output,
+                    "progress_hooks": [ProgressHook()],
+                    "quiet": True,
+                    "noplaylist": True
                 }
 
             else:
 
                 ydl_opts = {
-                    "format":
-                    "best",
-                    "outtmpl":
-                    output,
-                    "progress_hooks":
-                    [ProgressHook()],
-                    "quiet":
-                    True,
-                    "noplaylist":
-                    True
+                    "format": "best",
+                    "outtmpl": output,
+                    "progress_hooks": [ProgressHook()],
+                    "quiet": True,
+                    "noplaylist": True
                 }
 
         else:
 
             ydl_opts = {
-                "format":
-                "bestaudio/best",
-
-                "outtmpl":
-                output,
-
-                "progress_hooks":
-                [ProgressHook()],
-
+                "format": "bestaudio/best",
+                "outtmpl": output,
+                "progress_hooks": [ProgressHook()],
                 "postprocessors": [
                     {
-                        "key":
-                        "FFmpegExtractAudio",
-
-                        "preferredcodec":
-                        "mp3",
-
-                        "preferredquality":
-                        "192"
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192"
                     }
                 ],
-
-                "quiet":
-                True,
-
-                "noplaylist":
-                True
+                "quiet": True,
+                "noplaylist": True
             }
 
-        with yt_dlp.YoutubeDL(
-            ydl_opts
-        ) as ydl:
-
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        ext = (
-            "mp4"
-            if filetype == "MP4"
-            else "mp3"
-        )
+        ext = "mp4" if filetype == "MP4" else "mp3"
 
         files = list(
             Path(temp_dir).glob(
@@ -299,10 +264,7 @@ if st.button("다운로드 시작"):
 
         if files:
 
-            with open(
-                files[0],
-                "rb"
-            ) as f:
+            with open(files[0], "rb") as f:
 
                 st.download_button(
                     f"📥 {ext.upper()} 다운로드",
@@ -317,9 +279,7 @@ if st.button("다운로드 시작"):
 
     except Exception:
 
-        st.error(
-            "다운로드 실패"
-        )
+        st.error("다운로드 실패")
 
         st.code(
             traceback.format_exc()
