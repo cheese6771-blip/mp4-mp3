@@ -3,6 +3,7 @@ import yt_dlp
 import tempfile
 import os
 import re
+import traceback
 from pathlib import Path
 
 st.set_page_config(
@@ -11,45 +12,39 @@ st.set_page_config(
     layout="centered"
 )
 
-# -------------------------
+# ----------------------------
 # CSS
-# -------------------------
+# ----------------------------
 st.markdown("""
 <style>
-
 .stApp{
     background: linear-gradient(
         135deg,
         #7ca982 0%,
-        #a8c686 45%,
+        #b8d89b 50%,
         #f7f3d7 100%
     );
 }
 
+.block-container{
+    padding-top:2rem;
+}
+
 .title{
     text-align:center;
-    font-size:42px;
+    font-size:40px;
     font-weight:700;
-    color:#2f4f3f;
-    margin-bottom:15px;
+    color:#2d4739;
 }
 
-.video-card{
-    background:rgba(255,255,255,0.35);
-    padding:20px;
-    border-radius:20px;
-    backdrop-filter: blur(8px);
-}
-
-.stButton > button,
-.stDownloadButton > button{
+.stButton>button,
+.stDownloadButton>button{
     background:#f7f3d7;
-    color:#2f4f3f;
+    color:#2d4739;
     border:none;
     border-radius:12px;
     font-weight:bold;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -58,52 +53,34 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# -------------------------
-# 파일명 정리
-# -------------------------
-def clean_filename(name):
-    return re.sub(r'[\\/*?:"<>|]', "", name)
+# ----------------------------
+# 유틸
+# ----------------------------
 
-# -------------------------
-# 진행률 Hook
-# -------------------------
-progress_bar = st.empty()
-status_text = st.empty()
+def clean_filename(text):
+    return re.sub(r'[\\/*?:"<>|]', "", text)
 
-class ProgressHook:
 
-    def __call__(self, d):
+def get_available_resolutions(info):
+    resolutions = set()
 
-        if d["status"] == "downloading":
+    for fmt in info.get("formats", []):
+        height = fmt.get("height")
 
-            total = d.get("total_bytes")
+        if height:
+            resolutions.add(f"{height}p")
 
-            if not total:
-                total = d.get("total_bytes_estimate")
+    return sorted(
+        list(resolutions),
+        key=lambda x: int(x[:-1])
+    )
 
-            downloaded = d.get("downloaded_bytes", 0)
 
-            if total:
-                percent = downloaded / total
-                progress_bar.progress(min(percent, 1.0))
-                status_text.info(
-                    f"다운로드 중... {percent*100:.1f}%"
-                )
+# ----------------------------
+# 다운로드 가능 여부 검사
+# ----------------------------
 
-        elif d["status"] == "finished":
-
-            progress_bar.progress(1.0)
-            status_text.success("다운로드 완료")
-
-# -------------------------
-# URL 입력
-# -------------------------
-url = st.text_input(
-    "유튜브 링크",
-    placeholder="https://www.youtube.com/watch?v=..."
-)
-
-if url:
+def check_downloadable(url):
 
     try:
 
@@ -116,138 +93,164 @@ if url:
                 download=False
             )
 
-        title = info.get("title")
-        thumbnail = info.get("thumbnail")
-        duration = info.get("duration")
-        uploader = info.get("uploader")
+        return True, info
 
-        st.image(
-            thumbnail,
-            use_container_width=True
-        )
+    except Exception as e:
+        return False, str(e)
 
-        mins = duration // 60
-        secs = duration % 60
 
-        st.markdown(
-            f"""
-            ### {title}
+# ----------------------------
+# 진행률
+# ----------------------------
 
-            **채널:** {uploader}
+progress = st.empty()
+status = st.empty()
 
-            **길이:** {mins}:{secs:02d}
-            """
-        )
+class ProgressHook:
 
-        filename = st.text_input(
-            "파일명 수정",
-            value=clean_filename(title)
-        )
+    def __call__(self, d):
 
-        file_type = st.radio(
-            "형식 선택",
-            ["MP4", "MP3"],
-            horizontal=True
-        )
+        if d["status"] == "downloading":
 
-        if file_type == "MP4":
+            total = (
+                d.get("total_bytes")
+                or d.get("total_bytes_estimate")
+            )
+
+            downloaded = d.get(
+                "downloaded_bytes",
+                0
+            )
+
+            if total:
+
+                pct = downloaded / total
+
+                progress.progress(
+                    min(pct, 1.0)
+                )
+
+                status.info(
+                    f"다운로드 중 {pct*100:.1f}%"
+                )
+
+        elif d["status"] == "finished":
+
+            progress.progress(1.0)
+            status.success(
+                "다운로드 완료"
+            )
+
+
+# ----------------------------
+# UI
+# ----------------------------
+
+url = st.text_input(
+    "유튜브 링크",
+    placeholder="https://youtube.com/watch?v=..."
+)
+
+if url:
+
+    with st.spinner("영상 확인 중..."):
+
+        ok, result = check_downloadable(url)
+
+    if not ok:
+
+        st.error("다운로드 불가")
+
+        st.code(result)
+
+        st.stop()
+
+    info = result
+
+    title = info.get("title", "")
+    uploader = info.get("uploader", "")
+    duration = info.get("duration", 0)
+    thumbnail = info.get("thumbnail")
+
+    st.image(
+        thumbnail,
+        use_container_width=True
+    )
+
+    mins = duration // 60
+    secs = duration % 60
+
+    st.markdown(f"""
+### {title}
+
+**채널:** {uploader}
+
+**길이:** {mins}:{secs:02d}
+""")
+
+    filename = st.text_input(
+        "파일명 수정",
+        value=clean_filename(title)
+    )
+
+    filetype = st.radio(
+        "형식 선택",
+        ["MP4", "MP3"],
+        horizontal=True
+    )
+
+    quality = None
+
+    if filetype == "MP4":
+
+        resolutions = get_available_resolutions(info)
+
+        if resolutions:
 
             quality = st.selectbox(
                 "화질 선택",
-                [
-                    "360p",
-                    "720p",
-                    "1080p",
-                    "최고화질"
-                ]
+                resolutions[::-1]
             )
 
-        if st.button("다운로드 준비"):
+    if st.button("다운로드 시작"):
+
+        try:
 
             temp_dir = tempfile.mkdtemp()
 
-            progress_bar.progress(0)
+            progress.progress(0)
 
-            # -------------------------
-            # MP4
-            # -------------------------
-            if file_type == "MP4":
+            output = os.path.join(
+                temp_dir,
+                f"{filename}.%(ext)s"
+            )
 
-                if quality == "360p":
-                    fmt = (
-                        "bestvideo[height<=360]+bestaudio/"
-                        "best[height<=360]"
-                    )
+            if filetype == "MP4":
 
-                elif quality == "720p":
-                    fmt = (
-                        "bestvideo[height<=720]+bestaudio/"
-                        "best[height<=720]"
-                    )
-
-                elif quality == "1080p":
-                    fmt = (
-                        "bestvideo[height<=1080]+bestaudio/"
-                        "best[height<=1080]"
-                    )
-
-                else:
-                    fmt = "bestvideo+bestaudio/best"
-
-                output = os.path.join(
-                    temp_dir,
-                    f"{filename}.%(ext)s"
+                selected_height = quality.replace(
+                    "p",
+                    ""
                 )
 
                 ydl_opts = {
-                    "format": fmt,
+                    "format":
+                    f"bestvideo[height<={selected_height}]+bestaudio/best",
                     "outtmpl": output,
                     "merge_output_format": "mp4",
-                    "progress_hooks": [
-                        ProgressHook()
-                    ],
-                    "quiet": True,
+                    "progress_hooks":
+                    [ProgressHook()],
+                    "quiet": True
                 }
 
-                with yt_dlp.YoutubeDL(
-                    ydl_opts
-                ) as ydl:
-                    ydl.download([url])
-
-                files = list(
-                    Path(temp_dir).glob("*.mp4")
-                )
-
-                if files:
-
-                    with open(
-                        files[0],
-                        "rb"
-                    ) as f:
-
-                        st.download_button(
-                            "📥 MP4 다운로드",
-                            f,
-                            file_name=f"{filename}.mp4",
-                            mime="video/mp4"
-                        )
-
-            # -------------------------
-            # MP3
-            # -------------------------
             else:
 
-                output = os.path.join(
-                    temp_dir,
-                    f"{filename}.%(ext)s"
-                )
-
                 ydl_opts = {
-                    "format": "bestaudio/best",
-                    "outtmpl": output,
-                    "progress_hooks": [
-                        ProgressHook()
-                    ],
+                    "format":
+                    "bestaudio/best",
+                    "outtmpl":
+                    output,
+                    "progress_hooks":
+                    [ProgressHook()],
                     "postprocessors": [
                         {
                             "key":
@@ -255,34 +258,53 @@ if url:
                             "preferredcodec":
                             "mp3",
                             "preferredquality":
-                            "192",
+                            "192"
                         }
                     ],
-                    "quiet": True,
+                    "quiet": True
                 }
 
-                with yt_dlp.YoutubeDL(
-                    ydl_opts
-                ) as ydl:
-                    ydl.download([url])
+            with yt_dlp.YoutubeDL(
+                ydl_opts
+            ) as ydl:
 
-                files = list(
-                    Path(temp_dir).glob("*.mp3")
+                ydl.download([url])
+
+            ext = (
+                "mp4"
+                if filetype == "MP4"
+                else "mp3"
+            )
+
+            files = list(
+                Path(temp_dir).glob(
+                    f"*.{ext}"
                 )
+            )
 
-                if files:
+            if files:
 
-                    with open(
-                        files[0],
-                        "rb"
-                    ) as f:
+                with open(
+                    files[0],
+                    "rb"
+                ) as f:
 
-                        st.download_button(
-                            "🎵 MP3 다운로드",
-                            f,
-                            file_name=f"{filename}.mp3",
-                            mime="audio/mpeg"
+                    st.download_button(
+                        f"📥 {ext.upper()} 다운로드",
+                        data=f,
+                        file_name=
+                        f"{filename}.{ext}",
+                        mime=(
+                            "video/mp4"
+                            if ext=="mp4"
+                            else "audio/mpeg"
                         )
+                    )
 
-    except Exception as e:
-        st.error(f"오류 발생: {e}")
+        except Exception:
+
+            st.error("다운로드 실패")
+
+            st.code(
+                traceback.format_exc()
+            )
