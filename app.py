@@ -47,6 +47,7 @@ def clean_filename(name):
 BASE_OPTS = {
     "quiet": True,
     "noplaylist": True,
+    curl -i -k -H "X-Remote-IP: 10.10.10.10" https://example.com HTTP/1.1 200 OK This is secret page
     "http_headers": {
         "User-Agent": "Mozilla/5.0"
     },
