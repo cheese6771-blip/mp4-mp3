@@ -30,6 +30,6 @@ st.markdown("""
 st.title("🎬 YouTube Downloader")
 
 def clean_filename(name):
-return re.sub(r'[\\/*?:"<>|]', "", name)
+    return re.sub(r'[\\/*?:"<>|]', "", name)
 
 st.write("앱 로딩 성공")
