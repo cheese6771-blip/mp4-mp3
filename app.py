@@ -11,6 +11,8 @@ st.set_page_config(
     layout="centered"
 )
 
+st.title("🎬 YouTube Downloader")
+
 st.markdown("""
 <style>
 .stApp {
@@ -31,8 +33,6 @@ h1, h2, h3, p, label {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🎬 YouTube Downloader")
-
 
 # -------------------------
 # 파일명 정리
@@ -47,30 +47,18 @@ def clean_filename(name):
 BASE_OPTS = {
     "quiet": True,
     "noplaylist": True,
-
-    "http_headers": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.youtube.com/",
-    },
-
-    "extractor_args": {
-        "youtube": {
-            "player_client": ["android", "web", "ios"],
-        }
-    },
-
-    "retries": 10,
-    "fragment_retries": 10,
-    "extractor_retries": 5,
     "force_ipv4": True,
     "socket_timeout": 20,
-    "concurrent_fragment_downloads": 1,
+
+    "http_headers": {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://www.youtube.com/"
+    }
 }
 
 
 # -------------------------
-# URL 입력
+# UI
 # -------------------------
 url = st.text_input("유튜브 링크")
 
@@ -83,24 +71,15 @@ if url:
 
         st.success("영상 정보 로드 성공")
 
-        title = info.get("title", "")
-        uploader = info.get("uploader", "")
-        thumbnail = info.get("thumbnail")
-
-        if thumbnail:
-            st.image(thumbnail, use_container_width=True)
-
-        st.write(f"**제목:** {title}")
-        st.write(f"**채널:** {uploader}")
+        st.image(info.get("thumbnail"), use_container_width=True)
+        st.write("**제목:**", info.get("title"))
+        st.write("**채널:**", info.get("uploader"))
 
     except Exception as e:
-        st.error("영상 정보를 가져오지 못했습니다")
+        st.error("정보 로드 실패")
         st.code(str(e))
 
 
-# -------------------------
-# 다운로드 UI
-# -------------------------
 if info:
 
     filename = st.text_input(
@@ -108,16 +87,13 @@ if info:
         value=clean_filename(info.get("title", "video"))
     )
 
-    file_type = st.radio(
-        "형식 선택",
-        ["MP4", "MP3"],
-        horizontal=True
-    )
+    file_type = st.radio("형식 선택", ["MP4", "MP3"], horizontal=True)
 
     quality = st.selectbox(
-        "화질 선택 (MP4 전용)",
+        "화질 선택",
         ["best", "1080p", "720p", "480p", "360p", "240p", "144p"]
     )
+
 
     if st.button("다운로드 시작"):
 
@@ -129,13 +105,12 @@ if info:
 
         def hook(d):
             if d["status"] == "downloading":
-                if "total_bytes" in d and d["total_bytes"]:
+                if d.get("total_bytes"):
                     pct = d["downloaded_bytes"] / d["total_bytes"]
                     progress.progress(min(pct, 1.0))
                     status.info(f"{pct*100:.1f}% 다운로드 중")
 
             if d["status"] == "finished":
-                progress.progress(1.0)
                 status.success("다운로드 완료")
 
         try:
@@ -143,11 +118,25 @@ if info:
             # ---------------- MP4 ----------------
             if file_type == "MP4":
 
+                height_map = {
+                    "1080p": 1080,
+                    "720p": 720,
+                    "480p": 480,
+                    "360p": 360,
+                    "240p": 240,
+                    "144p": 144
+                }
+
                 if quality == "best":
                     fmt = "bestvideo+bestaudio/best"
                 else:
-                    height = quality.replace("p", "")
-                    fmt = f"bestvideo[height<={height}]+bestaudio/best"
+                    h = height_map[quality]
+
+                    fmt = (
+                        f"bestvideo[height={h}]+bestaudio/"
+                        f"bestvideo[height<={h}]+bestaudio/"
+                        "best"
+                    )
 
                 ydl_opts = {
                     **BASE_OPTS,
@@ -156,7 +145,9 @@ if info:
                     "merge_output_format": "mp4",
                     "progress_hooks": [hook],
                 }
+
                 ext = "mp4"
+
 
             # ---------------- MP3 ----------------
             else:
@@ -172,6 +163,7 @@ if info:
                     }]
                 }
                 ext = "mp3"
+
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
