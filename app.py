@@ -83,3 +83,5 @@ file_type = st.radio(
     ["MP4", "MP3"],
     horizontal=True
 )
+if st.button("다운로드 시작"):
+    st.info("다운로드 기능 테스트 단계")
