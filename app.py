@@ -42,18 +42,14 @@ def clean_filename(name):
 
 
 # -------------------------
-# 🔥 403 최소화 안정 세팅
+# yt-dlp 안정 세팅
 # -------------------------
 BASE_OPTS = {
     "quiet": True,
     "noplaylist": True,
 
     "http_headers": {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://www.youtube.com/",
     },
@@ -61,7 +57,6 @@ BASE_OPTS = {
     "extractor_args": {
         "youtube": {
             "player_client": ["android", "web", "ios"],
-            "skip": ["dash", "hls"]
         }
     },
 
@@ -69,6 +64,8 @@ BASE_OPTS = {
     "fragment_retries": 10,
     "extractor_retries": 5,
     "force_ipv4": True,
+    "socket_timeout": 20,
+    "concurrent_fragment_downloads": 1,
 }
 
 
@@ -102,7 +99,7 @@ if url:
 
 
 # -------------------------
-# 다운로드 실행
+# 다운로드
 # -------------------------
 if info:
 
@@ -127,7 +124,7 @@ if info:
 
         def hook(d):
             if d["status"] == "downloading":
-                if "total_bytes" in d:
+                if "total_bytes" in d and d["total_bytes"]:
                     pct = d["downloaded_bytes"] / d["total_bytes"]
                     progress.progress(min(pct, 1.0))
                     status.info(f"{pct*100:.1f}% 다운로드 중")
