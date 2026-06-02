@@ -42,7 +42,7 @@ def clean_filename(name):
 
 
 # -------------------------
-# yt-dlp 안정 세팅
+# yt-dlp 안정 설정
 # -------------------------
 BASE_OPTS = {
     "quiet": True,
@@ -99,7 +99,7 @@ if url:
 
 
 # -------------------------
-# 다운로드
+# 다운로드 UI
 # -------------------------
 if info:
 
@@ -112,6 +112,11 @@ if info:
         "형식 선택",
         ["MP4", "MP3"],
         horizontal=True
+    )
+
+    quality = st.selectbox(
+        "화질 선택 (MP4 전용)",
+        ["best", "1080p", "720p", "480p", "360p", "240p", "144p"]
     )
 
     if st.button("다운로드 시작"):
@@ -134,16 +139,26 @@ if info:
                 status.success("다운로드 완료")
 
         try:
+
+            # ---------------- MP4 ----------------
             if file_type == "MP4":
+
+                if quality == "best":
+                    fmt = "bestvideo+bestaudio/best"
+                else:
+                    height = quality.replace("p", "")
+                    fmt = f"bestvideo[height<={height}]+bestaudio/best"
+
                 ydl_opts = {
                     **BASE_OPTS,
-                    "format": "bestvideo+bestaudio/best",
+                    "format": fmt,
                     "outtmpl": output,
                     "merge_output_format": "mp4",
                     "progress_hooks": [hook],
                 }
                 ext = "mp4"
 
+            # ---------------- MP3 ----------------
             else:
                 ydl_opts = {
                     **BASE_OPTS,
